@@ -16,71 +16,41 @@
 
 package quasar.std
 
-import slamdata.Predef._
 import quasar._
-import quasar.common.data.Data
-import quasar.fp.ski._
-import quasar.frontend.logicalplan.{LogicalPlan => LP, _}
 
-import matryoshka._
-import matryoshka.implicits._
-import scalaz._, Scalaz._
-import shapeless.{Data => _, :: => _, _}
-
-trait AggLib extends Library {
-
-  private def simplifiesOnConstants(cont: Data => LP[Nothing]) = new Func.Simplifier {
-    def apply[T]
-      (orig: LP[T])
-      (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-      orig match {
-        case Invoke(_, Sized(src)) => src.project match {
-          case Constant(d) => cont(d).map(ι).some
-          case _ => None
-        }
-        case _ => None
-      }
-  }
+trait AggLib {
 
   val Count = UnaryFunc(
     Reduction,
-    "Counts the values in a set",
-    simplifiesOnConstants(_ => Constant(Data.Int(1))))
+    "Counts the values in a set")
 
   val Sum = UnaryFunc(
     Reduction,
-    "Sums the values in a set",
-    noSimplification)
+    "Sums the values in a set")
 
   val Min = UnaryFunc(
     Reduction,
-    "Finds the minimum in a set of values",
-    simplifiesOnConstants(Constant(_)))
+    "Finds the minimum in a set of values")
 
   val Max = UnaryFunc(
     Reduction,
-    "Finds the maximum in a set of values",
-    simplifiesOnConstants(Constant(_)))
+    "Finds the maximum in a set of values")
 
   val First = UnaryFunc(
     Reduction,
-    "Finds the first value in a set.",
-    simplifiesOnConstants(Constant(_)))
+    "Finds the first value in a set.")
 
   val Last = UnaryFunc(
     Reduction,
-    "Finds the last value in a set.",
-    simplifiesOnConstants(Constant(_)))
+    "Finds the last value in a set.")
 
   val Avg = UnaryFunc(
     Reduction,
-    "Finds the average in a set of numeric values",
-    simplifiesOnConstants(Constant(_)))
+    "Finds the average in a set of numeric values")
 
   val Arbitrary = UnaryFunc(
     Reduction,
-    "Returns an arbitrary value from a set",
-    simplifiesOnConstants(Constant(_)))
+    "Returns an arbitrary value from a set")
 }
 
 object AggLib extends AggLib

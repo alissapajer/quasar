@@ -16,69 +16,16 @@
 
 package quasar.std
 
-import slamdata.Predef._
-import quasar.{Func, UnaryFunc, BinaryFunc, Mapping}
-import quasar.common.data.Data
-import quasar.fp._
-import quasar.frontend.logicalplan.{LogicalPlan => LP, _}
+import quasar.{UnaryFunc, BinaryFunc, Mapping}
 
-import matryoshka._
-import scalaz._, Scalaz._
-import shapeless._
-
-trait MathLib extends Library {
-
-  // TODO[monocle]: Unit unapply needs to do Boolean instead of Option[Unit]
-  // val Zero = Prism.partial[Data, Unit] {
-  //   case Data.Number(v) if v ≟ 0 => ()
-  // } (κ(Data.Int(0)))
-  // Be careful when using this. Zero() creates an Int(0), but it *matches* Dec(0) too.
-  object Zero {
-    def apply() = Data.Int(0)
-    def unapply(obj: Data): Boolean = obj match {
-      case Data.Number(v) if v ≟ 0 => true
-      case _                       => false
-    }
-  }
-  object One {
-    def apply() = Data.Int(1)
-    def unapply(obj: Data): Boolean = obj match {
-      case Data.Number(v) if v ≟ 1 => true
-      case _                       => false
-    }
-  }
-
-  object ZeroF {
-    def apply() = Constant(Zero())
-    def unapply[A](obj: LP[A]): Boolean = obj match {
-      case Constant(Zero()) => true
-      case _                 => false
-    }
-  }
-  object OneF {
-    def apply() = Constant(One())
-    def unapply[A](obj: LP[A]): Boolean = obj match {
-      case Constant(One()) => true
-      case _                => false
-    }
-  }
+trait MathLib {
 
   /** Adds two numeric or temporal values, promoting to decimal when appropriate
     * if either operand is decimal.
     */
   val Add = BinaryFunc(
     Mapping,
-    "Adds two numeric or temporal values",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(Embed(x), Embed(ZeroF()))) => x.some
-          case Invoke(_, Sized(Embed(ZeroF()), Embed(x))) => x.some
-          case _                                           => None
-        }
-    })
+    "Adds two numeric or temporal values")
 
   /**
    * Multiplies two numeric or temporal values, promoting to decimal when appropriate
@@ -86,111 +33,64 @@ trait MathLib extends Library {
    */
   val Multiply = BinaryFunc(
     Mapping,
-    "Multiplies two numeric values or one interval and one numeric value",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(Embed(x), Embed(OneF()))) => x.some
-          case Invoke(_, Sized(Embed(OneF()), Embed(x))) => x.some
-          case _                                          => None
-        }
-    })
+    "Multiplies two numeric values or one interval and one numeric value")
 
   val Power = BinaryFunc(
     Mapping,
-    "Raises the first argument to the power of the second",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(Embed(x), Embed(OneF()))) => x.some
-          case _                                         => None
-        }
-    })
+    "Raises the first argument to the power of the second")
 
   /** Subtracts one numeric or temporal value from another,
     * promoting to decimal when appropriate if either operand is decimal.
     */
   val Subtract = BinaryFunc(
     Mapping,
-    "Subtracts two numeric or temporal values",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(Embed(x), Embed(ZeroF()))) => x.some
-          case Invoke(_, Sized(Embed(ZeroF()), x))        => Negate(x).some
-          case _                                          => None
-        }
-    })
+    "Subtracts two numeric or temporal values")
 
   /**
    * Divides one numeric value by another, promoting to decimal if either operand is decimal.
    */
   val Divide = BinaryFunc(
     Mapping,
-    "Divides one numeric value by another (non-zero) numeric value",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(Embed(x), Embed(OneF()))) => x.some
-          case _                                         => None
-        }
-    })
+    "Divides one numeric value by another (non-zero) numeric value")
 
   /**
    * Aka "unary minus".
    */
   val Negate = UnaryFunc(
     Mapping,
-    "Reverses the sign of a numeric or interval value",
-    noSimplification)
+    "Reverses the sign of a numeric or interval value")
 
   val Abs = UnaryFunc(
     Mapping,
-    "Returns the absolute value of a numeric or interval value",
-    noSimplification)
+    "Returns the absolute value of a numeric or interval value")
 
     val Ceil = UnaryFunc(
       Mapping,
-      "Returns the nearest integer greater than or equal to a numeric value",
-      noSimplification)
+      "Returns the nearest integer greater than or equal to a numeric value")
 
     val Floor = UnaryFunc(
       Mapping,
-      "Returns the nearest integer less than or equal to a numeric value",
-      noSimplification)
+      "Returns the nearest integer less than or equal to a numeric value")
 
     val Trunc = UnaryFunc(
       Mapping,
-      "Truncates a numeric value towards zero",
-      noSimplification)
+      "Truncates a numeric value towards zero")
 
     val Round = UnaryFunc(
       Mapping,
-      "Rounds a numeric value to the closest integer, utilizing a half-even strategy",
-      noSimplification)
+      "Rounds a numeric value to the closest integer, utilizing a half-even strategy")
 
     val FloorScale = BinaryFunc(
       Mapping,
-      "Returns the nearest number less-than or equal-to a given number, with the specified number of decimal digits",
-      noSimplification)
+      "Returns the nearest number less-than or equal-to a given number, with the specified number of decimal digits")
 
     val CeilScale = BinaryFunc(
       Mapping,
-      "Returns the nearest number greater-than or equal-to a given number, with the specified number of decimal digits",
-      noSimplification)
+      "Returns the nearest number greater-than or equal-to a given number, with the specified number of decimal digits")
 
     val RoundScale = BinaryFunc(
       Mapping,
-      "Returns the nearest number to a given number with the specified number of decimal digits",
-      noSimplification)
+      "Returns the nearest number to a given number with the specified number of decimal digits")
 
   // TODO: Come back to this, Modulo docs need to stop including Interval.
   // Note: there are 2 interpretations of `%` which return different values for negative numbers.
@@ -201,8 +101,7 @@ trait MathLib extends Library {
   // remainder in its description we keep the term `Modulo` around.
   val Modulo = BinaryFunc(
     Mapping,
-    "Finds the remainder of one number divided by another",
-    noSimplification)
+    "Finds the remainder of one number divided by another")
 }
 
 object MathLib extends MathLib

@@ -105,9 +105,8 @@ final class Optimizer[T: Equal]
     case x => x.fold
   }
 
-  private def inlineƒ[A](target: Symbol, repl: LP[T]):
-      LP[(T, T)] => LP[T] =
-  {
+  private def inlineƒ[A](target: Symbol, repl: LP[T])
+      : LP[(T, T)] => LP[T] = {
     case Free(symbol) if symbol ≟ target => repl
     case Let(ident, form, body) if ident ≟ target =>
       Let(ident, form._2, body._1)
@@ -115,7 +114,6 @@ final class Optimizer[T: Equal]
   }
 
   val simplifyƒ: LP[T] => Option[LP[T]] = {
-    case inv @ Invoke(func, _) => func.simplify(inv)
     case Let(ident, form, in) => form.project match {
       case Constant(_) | Free(_) =>
         in.transPara[T](inlineƒ(ident, form.project)).project.some
@@ -246,18 +244,18 @@ final class Optimizer[T: Equal]
         case InvokeUnapply(relations.Eq, Sized((_, RightCond(rc)), (_, LeftCond(lc)))) =>
           (Nil, EquiCond((l, r) => relations.Eq(rc(r), lc(l)).embed))
 
-        case InvokeUnapply(func @ UnaryFunc(_, _, _), Sized(t1)) =>
+        case InvokeUnapply(func @ UnaryFunc(_, _), Sized(t1)) =>
           (Nil, Func.Input1(t1).traverse(_._2).map(lpr.invoke(func, _)))
 
         // Preserve the previously-computed components in the `And`.
         // Return a constant `true` which is included as a no-op filter post-join.
-        case t @ InvokeUnapply(func @ BinaryFunc(_, _, _), Sized(t1, t2)) if func == relations.And =>
+        case t @ InvokeUnapply(func @ BinaryFunc(_, _), Sized(t1, t2)) if func == relations.And =>
           (List(t1._2, t2._2), NeitherCond(lpr.constant(Data.Bool(true))))
 
-        case InvokeUnapply(func @ BinaryFunc(_, _, _), Sized(t1, t2)) =>
+        case InvokeUnapply(func @ BinaryFunc(_, _), Sized(t1, t2)) =>
           (Nil, Func.Input2(t1, t2).traverse(_._2).map(lpr.invoke(func, _)))
 
-        case InvokeUnapply(func @ TernaryFunc(_, _, _), Sized(t1, t2, t3)) =>
+        case InvokeUnapply(func @ TernaryFunc(_, _), Sized(t1, t2, t3)) =>
           (Nil, Func.Input3(t1, t2, t3).traverse(_._2).map(lpr.invoke(func, _)))
 
         case Let(ident, form, body) =>

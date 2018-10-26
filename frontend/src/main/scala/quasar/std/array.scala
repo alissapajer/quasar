@@ -18,11 +18,10 @@ package quasar.std
 
 import quasar.{UnaryFunc, Mapping}
 
-trait ArrayLib extends Library {
+trait ArrayLib {
   val ArrayLength = UnaryFunc(
     Mapping,
-    "Gets the length an array.",
-    noSimplification)
+    "Gets the length an array.")
 }
 
 object ArrayLib extends ArrayLib

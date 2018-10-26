@@ -22,7 +22,6 @@ import quasar.frontend.logicalplan.{LogicalPlan => LP, _}
 // Needed for shapeless
 import scala.Predef._
 
-import matryoshka._
 import scalaz._
 import shapeless._
 import shapeless.syntax.sized._
@@ -54,8 +53,7 @@ object DimensionalEffect {
 
 final case class NullaryFunc(
     val effect: DimensionalEffect,
-    val help: String,
-    val simplify: Func.Simplifier) extends GenericFunc[nat._0] {
+    val help: String) extends GenericFunc[nat._0] {
 
   val arity: Int = 0
 
@@ -65,8 +63,7 @@ final case class NullaryFunc(
 
 final case class UnaryFunc(
     val effect: DimensionalEffect,
-    val help: String,
-    val simplify: Func.Simplifier) extends GenericFunc[nat._1] {
+    val help: String) extends GenericFunc[nat._1] {
 
   val arity: Int = 1
 
@@ -76,8 +73,7 @@ final case class UnaryFunc(
 
 final case class BinaryFunc(
     val effect: DimensionalEffect,
-    val help: String,
-    val simplify: Func.Simplifier) extends GenericFunc[nat._2] {
+    val help: String) extends GenericFunc[nat._2] {
 
   val arity: Int = 2
 
@@ -87,8 +83,7 @@ final case class BinaryFunc(
 
 final case class TernaryFunc(
     val effect: DimensionalEffect,
-    val help: String,
-    val simplify: Func.Simplifier) extends GenericFunc[nat._3] {
+    val help: String) extends GenericFunc[nat._3] {
 
   val arity: Int = 3
 
@@ -99,7 +94,6 @@ final case class TernaryFunc(
 sealed abstract class GenericFunc[N <: Nat](implicit toInt: ToInt[N]) { self =>
   def effect: DimensionalEffect
   def help: String
-  def simplify: Func.Simplifier
   def arity: Int
 
   def applyGeneric[A](args: Func.Input[A, N]): LP[A] =
@@ -246,19 +240,6 @@ trait GenericFuncInstances {
 object GenericFunc extends GenericFuncInstances
 
 object Func {
-  /** This handles rewrites that constant-folding (handled by the typers) can’t.
-    * I.e., any rewrite where either the result or one of the relevant arguments
-    * is a non-Constant expression. It _could_ cover all the rewrites, but
-    * there’s no need to duplicate the cases that must also be handled by the
-    * typer.
-    */
-  trait Simplifier {
-    def apply[T]
-      (orig: LP[T])
-      (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP])
-        : Option[LP[T]]
-  }
-
   type Input[A, N <: Nat] = Sized[List[A], N]
 
   def Input1[A](a1: A): Input[A, nat._1] = Sized[List](a1)

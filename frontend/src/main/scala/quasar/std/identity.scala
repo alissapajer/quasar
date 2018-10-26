@@ -17,32 +17,16 @@
 package quasar.std
 
 import quasar._
-import quasar.frontend.logicalplan.{LogicalPlan => LP, _}
 
-import matryoshka._
-import scalaz._, Scalaz._
-import shapeless._
-
-trait IdentityLib extends Library {
+trait IdentityLib {
 
   val Squash: UnaryFunc = UnaryFunc(
     Squashing,
-    "Squashes all dimensional information",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case InvokeUnapply(_, Sized(Embed(InvokeUnapply(Squash, Sized(x))))) =>
-            Squash(x).some
-          case _ => none
-        }
-    })
+    "Squashes all dimensional information")
 
   val TypeOf = UnaryFunc(
     Mapping,
-    "Returns the simple type of a value.",
-    noSimplification)
+    "Returns the simple type of a value.")
 }
 
 object IdentityLib extends IdentityLib

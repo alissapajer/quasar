@@ -19,7 +19,6 @@ package quasar.std
 import slamdata.Predef._
 import quasar._
 import quasar.common.data.Data
-import quasar.fp._
 import quasar.frontend.logicalplan.{LogicalPlan => LP, _}
 
 import matryoshka._
@@ -27,140 +26,89 @@ import matryoshka.implicits._
 import scalaz._, Scalaz._
 import shapeless.{Data => _, :: => _, _}
 
-trait StructuralLib extends Library {
+trait StructuralLib {
 
   val MakeMap = BinaryFunc(
     Mapping,
-    "Makes a singleton map containing a single key",
-    noSimplification)
+    "Makes a singleton map containing a single key")
 
   val MakeArray = UnaryFunc(
     Mapping,
-    "Makes a singleton array containing a single element",
-    noSimplification)
+    "Makes a singleton array containing a single element")
 
   val Meta = UnaryFunc(
     Mapping,
-    "Returns the metadata associated with a value.",
-    noSimplification)
+    "Returns the metadata associated with a value.")
 
   val MapConcat: BinaryFunc = BinaryFunc(
     Mapping,
-    "A right-biased merge of two maps into one map",
-    noSimplification)
+    "A right-biased merge of two maps into one map")
 
   val ArrayConcat: BinaryFunc = BinaryFunc(
     Mapping,
-    "A merge of two arrays into one array",
-    noSimplification)
+    "A merge of two arrays into one array")
 
   // TODO can we delete this now that we don't type-check?
   // NB: Used only during type-checking, and then compiled into either (string) Concat or ArrayConcat.
   val ConcatOp = BinaryFunc(
     Mapping,
-    "A merge of two arrays/strings.",
-    noSimplification)
+    "A merge of two arrays/strings.")
 
   val MapProject = BinaryFunc(
     Mapping,
-    "Extracts a specified key of an object",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case InvokeUnapply(_, Sized(Embed(MakeMapN(m)), Embed(key))) =>
-            m.map(_.leftMap(_.project)).toListMap.get(key).map(_.project)
-          case _ => None
-        }
-    })
+    "Extracts a specified key of an object")
 
   val ArrayProject = BinaryFunc(
     Mapping,
-    "Extracts a specified index of an array",
-    noSimplification)
+    "Extracts a specified index of an array")
 
   val DeleteKey: BinaryFunc = BinaryFunc(
     Mapping,
-    "Deletes a specified key from a map",
-    noSimplification)
+    "Deletes a specified key from a map")
 
   val ContainsKey: BinaryFunc = BinaryFunc(
     Mapping,
-    "Checks for the existence of the specified key in a map",
-    noSimplification)
+    "Checks for the existence of the specified key in a map")
 
   val FlattenMap = UnaryFunc(
     Expansion,
-    "Zooms in on the values of a map, extending the current dimension with the keys",
-    noSimplification)
+    "Zooms in on the values of a map, extending the current dimension with the keys")
 
   val FlattenArray = UnaryFunc(
     Expansion,
-    "Zooms in on the elements of an array, extending the current dimension with the indices",
-    noSimplification)
+    "Zooms in on the elements of an array, extending the current dimension with the indices")
 
   val FlattenMapKeys = UnaryFunc(
     Expansion,
-    "Zooms in on the keys of a map, also extending the current dimension with the keys",
-    noSimplification)
+    "Zooms in on the keys of a map, also extending the current dimension with the keys")
 
   val FlattenArrayIndices = UnaryFunc(
     Expansion,
-    "Zooms in on the indices of an array, also extending the current dimension with the indices",
-    noSimplification)
+    "Zooms in on the indices of an array, also extending the current dimension with the indices")
 
   val ShiftMap = UnaryFunc(
     Expansion,
-    "Zooms in on the values of a map, adding the keys as a new dimension",
-    noSimplification)
+    "Zooms in on the values of a map, adding the keys as a new dimension")
 
   val ShiftArray = UnaryFunc(
     Expansion,
-    "Zooms in on the elements of an array, adding the indices as a new dimension",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case InvokeUnapply(_, Sized(Embed(InvokeUnapply(UnshiftArray, Sized(Embed(set)))))) => set.some
-          case _                                                                                => None
-        }
-    })
+    "Zooms in on the elements of an array, adding the indices as a new dimension")
 
   val ShiftMapKeys = UnaryFunc(
     Expansion,
-    "Zooms in on the keys of a map, also adding the keys as a new dimension",
-    noSimplification)
+    "Zooms in on the keys of a map, also adding the keys as a new dimension")
 
   val ShiftArrayIndices = UnaryFunc(
     Expansion,
-    "Zooms in on the indices of an array, also adding the keys as a new dimension",
-    noSimplification)
+    "Zooms in on the indices of an array, also adding the keys as a new dimension")
 
   val UnshiftMap: BinaryFunc = BinaryFunc(
     Reduction,
-    "Puts the value into a map with the key.",
-    noSimplification)
+    "Puts the value into a map with the key.")
 
   val UnshiftArray: UnaryFunc = UnaryFunc(
     Reduction,
-    "Puts the values into an array.",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case InvokeUnapply(_, Sized(Embed(InvokeUnapply(ShiftArray, Sized(Embed(array)))))) => array.some
-          case InvokeUnapply(_, Sized(Embed(InvokeUnapply(ShiftArrayIndices, Sized(Embed(Constant(Data.Arr(array)))))))) =>
-            Constant(Data.Arr((0 until array.length).toList ∘ (Data.Int(_)))).some
-          case InvokeUnapply(_, Sized(Embed(InvokeUnapply( ShiftMap, Sized(Embed(Constant(Data.Obj(map)))))))) =>
-            Constant(Data.Arr(map.values.toList)).some
-          case InvokeUnapply(_, Sized(Embed(InvokeUnapply( ShiftMapKeys, Sized(Embed(Constant(Data.Obj(map)))))))) =>
-            Constant(Data.Arr(map.keys.toList.map(Data.Str(_)))).some
-          case _ => None
-        }
-    })
+    "Puts the values into an array.")
 
   object MakeMapN {
     // Note: signature does not match VirtualFunc

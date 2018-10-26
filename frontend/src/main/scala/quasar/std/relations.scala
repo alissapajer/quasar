@@ -16,102 +16,56 @@
 
 package quasar.std
 
-import slamdata.Predef._
-import quasar.{Func, Mapping, UnaryFunc, BinaryFunc, TernaryFunc}
-import quasar.common.data.Data
-import quasar.frontend.logicalplan.{LogicalPlan => LP, _}
+import quasar.{Mapping, UnaryFunc, BinaryFunc, TernaryFunc}
 
-import matryoshka._
-import scalaz._, Scalaz._
-import shapeless._
-
-trait RelationsLib extends Library {
+trait RelationsLib {
   val Eq = BinaryFunc(
     Mapping,
-    "Determines if two values are equal",
-    noSimplification)
+    "Determines if two values are equal")
 
   val Neq = BinaryFunc(
     Mapping,
-    "Determines if two values are not equal",
-    noSimplification)
+    "Determines if two values are not equal")
 
   val Lt = BinaryFunc(
     Mapping,
-    "Determines if one value is less than another value of the same type",
-    noSimplification)
+    "Determines if one value is less than another value of the same type")
 
   val Lte = BinaryFunc(
     Mapping,
-    "Determines if one value is less than or equal to another value of the same type",
-    noSimplification)
+    "Determines if one value is less than or equal to another value of the same type")
 
   val Gt = BinaryFunc(
     Mapping,
-    "Determines if one value is greater than another value of the same type",
-    noSimplification)
+    "Determines if one value is greater than another value of the same type")
 
   val Gte = BinaryFunc(
     Mapping,
-    "Determines if one value is greater than or equal to another value of the same type",
-    noSimplification)
+    "Determines if one value is greater than or equal to another value of the same type")
 
   val Between = TernaryFunc(
     Mapping,
-    "Determines if a value is between two other values of the same type, inclusive",
-    noSimplification)
+    "Determines if a value is between two other values of the same type, inclusive")
 
   val IfUndefined = BinaryFunc(
     Mapping,
-    "This is the only way to recognize an undefined value. If the first argument is undefined, return the second argument, otherwise, return the first.",
-    noSimplification)
+    "This is the only way to recognize an undefined value. If the first argument is undefined, return the second argument, otherwise, return the first.")
 
   val And = BinaryFunc(
     Mapping,
-    "Performs a logical AND of two boolean values",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(Embed(Constant(Data.True)), Embed(r))) => r.some
-          case Invoke(_, Sized(Embed(l), Embed(Constant(Data.True)))) => l.some
-          case _                                                       => None
-        }
-    })
+    "Performs a logical AND of two boolean values")
 
   val Or = BinaryFunc(
     Mapping,
-    "Performs a logical OR of two boolean values",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(Embed(Constant(Data.False)), Embed(r))) => r.some
-          case Invoke(_, Sized(Embed(l), Embed(Constant(Data.False)))) => l.some
-          case _                                                        => None
-        }
-    })
+    "Performs a logical OR of two boolean values")
 
   val Not = UnaryFunc(
     Mapping,
-    "Performs a logical negation of a boolean value",
-    noSimplification)
+    "Performs a logical negation of a boolean value")
 
   val Cond = TernaryFunc(
     Mapping,
-    "Chooses between one of two cases based on the value of a boolean expression",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(Embed(Constant(Data.True)),  Embed(c), _)) => c.some
-          case Invoke(_, Sized(Embed(Constant(Data.False)), _, Embed(a))) => a.some
-          case _                                                            => None
-        }
-    })
+    "Chooses between one of two cases based on the value of a boolean expression")
 }
 
 object RelationsLib extends RelationsLib

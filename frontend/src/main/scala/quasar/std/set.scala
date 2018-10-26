@@ -16,126 +16,56 @@
 
 package quasar.std
 
-import slamdata.Predef._
 import quasar._
-import quasar.common.data.Data
-import quasar.frontend.logicalplan.{LogicalPlan => LP, _}
 
-import matryoshka._
-import matryoshka.implicits._
-import scalaz._, Scalaz._
-import shapeless.{Data => _, _}
-
-trait SetLib extends Library {
+trait SetLib {
   val Take: BinaryFunc = BinaryFunc(
     Sifting,
-    "Takes the first N elements from a set",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case InvokeUnapply(_, Sized(Embed(InvokeUnapply(Take, Sized(src, Embed(Constant(Data.Int(m)))))), Embed(Constant(Data.Int(n))))) =>
-            Take(src, Constant[T](Data.Int(m.min(n))).embed).some
-          case _ => None
-        }
-    })
+    "Takes the first N elements from a set")
 
   val Sample: BinaryFunc = BinaryFunc(
     Sifting,
-    "Randomly selects N elements from a set",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case InvokeUnapply(_, Sized(Embed(InvokeUnapply(Take, Sized(src, Embed(Constant(Data.Int(m)))))), Embed(Constant(Data.Int(n))))) =>
-            Take(src, Constant[T](Data.Int(m.min(n))).embed).some
-          case _ => None
-        }
-    })
+    "Randomly selects N elements from a set")
 
   val Drop: BinaryFunc = BinaryFunc(
     Sifting,
-    "Drops the first N elements from a set",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(Embed(set), Embed(Constant(Data.Int(n)))))
-              if n == 0 =>
-            set.some
-          case InvokeUnapply(_, Sized(Embed(InvokeUnapply(Drop, Sized(src, Embed(Constant(Data.Int(m)))))), Embed(Constant(Data.Int(n))))) =>
-            Drop(src, Constant[T](Data.Int(m + n)).embed).some
-          case _ => None
-        }
-    })
+    "Drops the first N elements from a set")
 
   val Range = BinaryFunc(
     Mapping,
-    "Creates an array of values in the range from `a` to `b`, inclusive.",
-    noSimplification)
+    "Creates an array of values in the range from `a` to `b`, inclusive.")
 
   val Filter = BinaryFunc(
     Sifting,
-    "Filters a set to include only elements where a projection is true",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(Embed(set), Embed(Constant(Data.True)))) =>
-            set.some
-          case _ => None
-        }
-    })
+    "Filters a set to include only elements where a projection is true")
 
   val GroupBy = BinaryFunc(
     Transformation,
-    "Groups a projection of a set by another projection",
-    noSimplification)
+    "Groups a projection of a set by another projection")
 
   val Union = BinaryFunc(
     Transformation,
-    "Creates a new set with all the elements of each input set, keeping duplicates.",
-    noSimplification)
+    "Creates a new set with all the elements of each input set, keeping duplicates.")
 
   val Intersect = BinaryFunc(
     Transformation,
-    "Creates a new set with only the elements that exist in both input sets, keeping duplicates.",
-    noSimplification)
+    "Creates a new set with only the elements that exist in both input sets, keeping duplicates.")
 
   val Except = BinaryFunc(
     Transformation,
-    "Removes the elements of the second set from the first set.",
-    noSimplification)
+    "Removes the elements of the second set from the first set.")
 
   val In = BinaryFunc(
     Sifting,
-    "Determines whether a value is in a given set.",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case Invoke(_, Sized(item, set)) => set.project match {
-            case Constant(_) => RelationsLib.Eq(item, set).some
-            case _ => Within(item, StructuralLib.UnshiftArray(set).embed).some
-          }
-          case _ => None
-        }
-    })
+    "Determines whether a value is in a given set.")
 
   val Within = BinaryFunc(
     Mapping,
-    "Determines whether a value is in a given array.",
-    noSimplification)
+    "Determines whether a value is in a given array.")
 
   val Constantly = BinaryFunc(
     Transformation,
-    "Always return the same value",
-    noSimplification)
+    "Always return the same value")
 }
 
 object SetLib extends SetLib

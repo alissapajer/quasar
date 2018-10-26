@@ -34,7 +34,7 @@ import java.time.{
 import scalaz._
 import scalaz.syntax.either._
 
-trait DateLib extends Library with Serializable {
+trait DateLib extends Serializable {
 
   def parseOffsetDateTime(str: String): ArgumentError \/ Data.OffsetDateTime =
     \/.fromTryCatchNonFatal(JOffsetDateTime.parse(str)).bimap(
@@ -78,13 +78,11 @@ trait DateLib extends Library with Serializable {
 
   private def unaryFunc(help: String) =
     UnaryFunc(
-      Mapping, help,
-      noSimplification)
+      Mapping, help)
 
   private def binaryFunc(help: String) =
     BinaryFunc(
-      Mapping, help,
-      noSimplification)
+      Mapping, help)
 
   val ExtractCentury = unaryFunc(
     "Pulls out the century subfield from a date/time value (currently (year - 1)/100 + 1).")
@@ -163,84 +161,69 @@ trait DateLib extends Library with Serializable {
 
   val Now = NullaryFunc(
     Mapping,
-    "Returns the current datetime in the current time zone – this must always return the same value within the same execution of a query.",
-    noSimplification)
+    "Returns the current datetime in the current time zone – this must always return the same value within the same execution of a query.")
 
   val NowTime = NullaryFunc(
     Mapping,
-    "Returns the current time in the current time zone – this must always return the same value within the same execution of a query.",
-    noSimplification)
+    "Returns the current time in the current time zone – this must always return the same value within the same execution of a query.")
 
   val NowDate = NullaryFunc(
     Mapping,
-    "Returns the current date in the current time zone – this must always return the same value within the same execution of a query.",
-    noSimplification)
+    "Returns the current date in the current time zone – this must always return the same value within the same execution of a query.")
 
   val CurrentTimeZone = NullaryFunc(
     Mapping,
-    "Returns the current time zone offset in total seconds - this must always return the same value within the same execution of a query.",
-    noSimplification)
+    "Returns the current time zone offset in total seconds - this must always return the same value within the same execution of a query.")
 
   val OffsetDateTime = UnaryFunc(
     Mapping,
-    "Converts a string in the format (YYYY-MM-DDTHH:MM:SS((+/-)HH[:MM[:SS]])/Z) to a timestamp value with a time zone offset. This is a partial function – arguments that don’t satisify the constraint have undefined results.",
-    noSimplification)
+    "Converts a string in the format (YYYY-MM-DDTHH:MM:SS((+/-)HH[:MM[:SS]])/Z) to a timestamp value with a time zone offset. This is a partial function – arguments that don’t satisify the constraint have undefined results.")
 
   val OffsetTime = UnaryFunc(
     Mapping,
-    "Converts a string in the format (HH:MM:SS[.SSS]((+/-)HH:MM:SS)/Z) to a time value with a time zone offset. This is a partial function – arguments that don’t satisify the constraint have undefined results.",
-    noSimplification)
+    "Converts a string in the format (HH:MM:SS[.SSS]((+/-)HH:MM:SS)/Z) to a time value with a time zone offset. This is a partial function – arguments that don’t satisify the constraint have undefined results.")
 
   val OffsetDate = UnaryFunc(
     Mapping,
-    "Converts a string in the format (YYYY-MM-DD((+/-)HH:MM:SS)/Z) to a date value with a time zone offset. This is a partial function – arguments that don’t satisify the constraint have undefined results.",
-    noSimplification)
+    "Converts a string in the format (YYYY-MM-DD((+/-)HH:MM:SS)/Z) to a date value with a time zone offset. This is a partial function – arguments that don’t satisify the constraint have undefined results.")
 
   val LocalDateTime = UnaryFunc(
     Mapping,
-    "Converts a string in the format (YYYY-MM-DDTHH:MM:SS) to a date value paired with a time. This is a partial function – arguments that don’t satisify the constraint have undefined results.",
-    noSimplification)
+    "Converts a string in the format (YYYY-MM-DDTHH:MM:SS) to a date value paired with a time. This is a partial function – arguments that don’t satisify the constraint have undefined results.")
 
   val LocalTime = UnaryFunc(
     Mapping,
-    "Converts a string in the format (HH:MM:SS[.SSS]) to a time value. This is a partial function – arguments that don’t satisify the constraint have undefined results.",
-    noSimplification)
+    "Converts a string in the format (HH:MM:SS[.SSS]) to a time value. This is a partial function – arguments that don’t satisify the constraint have undefined results.")
 
   val LocalDate = UnaryFunc(
     Mapping,
-    "Converts a string in the format (YYYY-MM-DD) to a date value. This is a partial function – arguments that don’t satisify the constraint have undefined results.",
-    noSimplification)
+    "Converts a string in the format (YYYY-MM-DD) to a date value. This is a partial function – arguments that don’t satisify the constraint have undefined results.")
 
   /**
     * TODO: document behavior change, now that years and months work
     */
   val Interval = UnaryFunc(
     Mapping,
-    "Converts a string in the format (ISO 8601, e.g. P3DT12H30M15.0S) to an interval value. This is a partial function – arguments that don’t satisify the constraint have undefined results.",
-    noSimplification)
+    "Converts a string in the format (ISO 8601, e.g. P3DT12H30M15.0S) to an interval value. This is a partial function – arguments that don’t satisify the constraint have undefined results.")
 
   /**
    * TODO: document behavior change, `StartOfDay` only makes `OffsetDateTime`s out of other `OffsetDateTime`s.
    */
   val StartOfDay = UnaryFunc(
     Mapping,
-    "Converts a DateTime or Date to a DateTime at the start of that day.",
-    noSimplification)
+    "Converts a DateTime or Date to a DateTime at the start of that day.")
 
   val TimeOfDay = UnaryFunc(
     Mapping,
-    "Extracts the time of day from a datetime value. Preserves time zone information.",
-    noSimplification)
+    "Extracts the time of day from a datetime value. Preserves time zone information.")
 
   val ToTimestamp = UnaryFunc(
     Mapping,
-    "Converts an integer epoch time value (i.e. milliseconds since 1 Jan. 1970, UTC) to a timestamp constant.",
-    noSimplification)
+    "Converts an integer epoch time value (i.e. milliseconds since 1 Jan. 1970, UTC) to a timestamp constant.")
 
   val ToLocal = UnaryFunc(
     Mapping,
-    "Removes the time zone offset from a date, time, or datetime value.",
-    noSimplification)
+    "Removes the time zone offset from a date, time, or datetime value.")
 }
 
 object DateLib extends DateLib

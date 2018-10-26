@@ -18,56 +18,67 @@ package quasar.std
 
 import slamdata.Predef._
 import quasar._
-import quasar.common.data.Data
-import quasar.frontend.logicalplan.{LogicalPlan => LP, _}
 
-import matryoshka._
-import matryoshka.implicits._
-import scalaz._, Scalaz._
-import shapeless.{Data => _, :: => _, _}
-
-trait StringLib extends Library {
+trait StringLib {
 
   val Concat = BinaryFunc(
     Mapping,
-    "Concatenates two (or more) string values",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case InvokeUnapply(_, Sized(Embed(Constant(Data.Str(""))), Embed(second))) =>
-            second.some
-          case InvokeUnapply(_, Sized(Embed(first), Embed(Constant(Data.Str(""))))) =>
-            first.some
-          case _ => None
-        }
-    })
+    "Concatenates two (or more) string values")
 
   val Like = TernaryFunc(
     Mapping,
-    "Determines if a string value matches a pattern.",
-    noSimplification)
+    "Determines if a string value matches a pattern.")
 
   val Search = TernaryFunc(
     Mapping,
-    "Determines if a string value matches a regular expression. If the third argument is true, then it is a case-insensitive match.",
-    noSimplification)
+    "Determines if a string value matches a regular expression. If the third argument is true, then it is a case-insensitive match.")
 
   val Length = UnaryFunc(
     Mapping,
-    "Counts the number of characters in a string.",
-    noSimplification)
+    "Counts the number of characters in a string.")
 
   val Lower = UnaryFunc(
     Mapping,
-    "Converts the string to lower case.",
-    noSimplification)
+    "Converts the string to lower case.")
 
   val Upper = UnaryFunc(
     Mapping,
-    "Converts the string to upper case.",
-    noSimplification)
+    "Converts the string to upper case.")
+
+  val Substring: TernaryFunc = TernaryFunc(
+    Mapping,
+    "Extracts a portion of the string")
+
+  val Split = BinaryFunc(
+    Mapping,
+    "Splits a string into an array of substrings based on a delimiter.")
+
+  val Boolean = UnaryFunc(
+    Mapping,
+    "Converts the strings “true” and “false” into boolean values. This is a partial function – arguments that don’t satisfy the constraint have undefined results.")
+
+  val Integer = UnaryFunc(
+    Mapping,
+    "Converts strings containing integers into integer values. This is a partial function – arguments that don’t satisfy the constraint have undefined results.")
+
+  val Decimal = UnaryFunc(
+    Mapping,
+    "Converts strings containing decimals into decimal values. This is a partial function – arguments that don’t satisfy the constraint have undefined results.")
+
+  val Number = UnaryFunc(
+    Mapping,
+    "Converts strings containing numbers into number values. This is a partial function – arguments that don’t satisfy the constraint have undefined results.")
+
+  val Null = UnaryFunc(
+    Mapping,
+    "Converts strings containing “null” into the null value. This is a partial function – arguments that don’t satisfy the constraint have undefined results.")
+
+  val ToString: UnaryFunc = UnaryFunc(
+    Mapping,
+    "Converts any primitive type to a string.")
+}
+
+object StringLib extends StringLib {
 
   /** Substring which always gives a result, no matter what offsets are provided.
     * Reverse-engineered from MongoDb's \$substr op, for lack of a better idea
@@ -79,63 +90,4 @@ trait StringLib extends Library {
     if (start < 0 || start > str.length) ""
     else if (length < 0) str.substring(start, str.length)
     else str.substring(start, (start + length) min str.length)
-
-  val Substring: TernaryFunc = TernaryFunc(
-    Mapping,
-    "Extracts a portion of the string",
-    new Func.Simplifier {
-      def apply[T]
-        (orig: LP[T])
-        (implicit TR: Recursive.Aux[T, LP], TC: Corecursive.Aux[T, LP]) =
-        orig match {
-          case InvokeUnapply(f @ TernaryFunc(_, _, _), Sized(
-            Embed(Constant(Data.Str(str))),
-            Embed(Constant(Data.Int(from))),
-            for0)) if from != 0 =>
-              if (from < 0 || from > str.length) Constant[T](Data.Str("")).some
-              else
-                Invoke(f, Func.Input3(
-                  Constant[T](Data.Str(str.substring(from.intValue))).embed,
-                  Constant[T](Data.Int(0)).embed,
-                  for0)).some
-          case _ => None
-        }
-    })
-
-  val Split = BinaryFunc(
-    Mapping,
-    "Splits a string into an array of substrings based on a delimiter.",
-    noSimplification)
-
-  val Boolean = UnaryFunc(
-    Mapping,
-    "Converts the strings “true” and “false” into boolean values. This is a partial function – arguments that don’t satisfy the constraint have undefined results.",
-    noSimplification)
-
-  val Integer = UnaryFunc(
-    Mapping,
-    "Converts strings containing integers into integer values. This is a partial function – arguments that don’t satisfy the constraint have undefined results.",
-    noSimplification)
-
-  val Decimal = UnaryFunc(
-    Mapping,
-    "Converts strings containing decimals into decimal values. This is a partial function – arguments that don’t satisfy the constraint have undefined results.",
-    noSimplification)
-
-  val Number = UnaryFunc(
-    Mapping,
-    "Converts strings containing numbers into number values. This is a partial function – arguments that don’t satisfy the constraint have undefined results.",
-    noSimplification)
-
-  val Null = UnaryFunc(
-    Mapping,
-    "Converts strings containing “null” into the null value. This is a partial function – arguments that don’t satisfy the constraint have undefined results.",
-    noSimplification)
-
-  val ToString: UnaryFunc = UnaryFunc(
-    Mapping,
-    "Converts any primitive type to a string.",
-    noSimplification)
 }
-
-object StringLib extends StringLib

@@ -16,7 +16,7 @@
 
 package quasar.std
 
-trait StdLib extends Library {
+trait StdLib {
   val math = MathLib
 
   val structural = StructuralLib
