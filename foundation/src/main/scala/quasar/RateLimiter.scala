@@ -110,6 +110,7 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
         val c = Config(max, window)
         configs.putIfAbsent(hashkey, c).getOrElse(c)
       }
+      _ <- queue.enqueue1(Configure(hashkey, config))
 
       now <- nowF
       maybeR <- Ref.of[F, State](State(0, now, now))
@@ -171,10 +172,15 @@ object RateLimiter {
 case class Config(max: Int, window: FiniteDuration)
 
 sealed trait Message
+// broadcast around the cluster
 final case class PlusOne(key: Exists[Key]) extends Message
+// broadcast around the cluster
 final case class Reset(key: Exists[Key]) extends Message
+// broadcast around the cluster
 final case class Configure(key: Exists[Key], config: Config) extends Message
+// broadcast around the cluster
 final case class Wait(key: Exists[Key], length: FiniteDuration) extends Message
+// not broadcast, received as a result of a request made on this node
 final case class Throttled(key: Exists[Key]) extends Message
 
 final case class Key[A](value: A, hash: Hash[A], tag: ClassTag[A])
