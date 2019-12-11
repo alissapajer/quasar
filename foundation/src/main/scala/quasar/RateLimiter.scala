@@ -32,10 +32,12 @@ import cats.effect.concurrent.Ref
 import cats.kernel.Hash
 import cats.implicits._
 
+import fs2.{Pipe, Stream}
+
 import skolems._
 
 final class RateLimiter[F[_]: Sync: Timer] private (caution: Double) {
-  // TODO make these things clustering-aware
+
   private val configs: TrieMap[Exists[Key], Config] =
     new TrieMap[Exists[Key], Config](
       toHashing[Exists[Key]],
@@ -45,6 +47,9 @@ final class RateLimiter[F[_]: Sync: Timer] private (caution: Double) {
     new TrieMap[Exists[Key], Ref[F, State]](
       toHashing[Exists[Key]],
       toEquiv[Exists[Key]])
+
+  def update: Pipe[F, Exists[Key], Unit] = ???
+  def subscribe: Stream[F, Exists[Key]] = ???
 
   def apply[A: Hash: ClassTag](key: A, max: Int, window: FiniteDuration)
       : F[F[Unit]] =
@@ -92,9 +97,9 @@ final class RateLimiter[F[_]: Sync: Timer] private (caution: Double) {
   private case class Config(max: Int, window: FiniteDuration)
   private case class State(count: Int, start: FiniteDuration)
 
-  private case class Key[A](value: A, hash: Hash[A], tag: ClassTag[A])
+  case class Key[A](value: A, hash: Hash[A], tag: ClassTag[A])
 
-  private object Key {
+  object Key {
     implicit def hash: Hash[Exists[Key]] =
       new Hash[Exists[Key]] {
 
