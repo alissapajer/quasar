@@ -51,6 +51,8 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
       toHashing[Exists[Key]],
       toEquiv[Exists[Key]])
 
+  val subscribe: Stream[F, Message] = queue.dequeue
+
   val update: Pipe[F, Message, Unit] = _ evalMap {
     case Reset(key) =>
       for {
@@ -58,9 +60,9 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
         now <- nowF
         _ <- ref match {
           case Some(r) =>
-            r.tryUpdate(_ => State(0, now))
+            r.tryUpdate(_ => State(0, now, now))
           case None =>
-            Ref.of[F, State](State(0, now)).map(r =>
+            Ref.of[F, State](State(0, now, now)).map(r =>
               states.update(key, r))
         }
       } yield ()
@@ -71,9 +73,22 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
         now <- nowF
         _ <- ref match {
           case Some(r) =>
-            r.modify(s => (s.copy(count = s.count + 1), s.count))
+            r.modify(s => (s.copy(count = s.count + 1), ()))
           case None =>
-            Ref.of[F, State](State(1, now)).map(r =>
+            Ref.of[F, State](State(1, now, now)).map(r =>
+              states.update(key, r))
+        }
+      } yield ()
+
+    case Wait(key, length) =>
+      for {
+        ref <- Sync[F].delay(states.get(key))
+        now <- nowF
+        _ <- ref match {
+          case Some(r) =>
+            r.modify(s => (s.copy(waitUntil = length + now), ()))
+          case None =>
+            Ref.of[F, State](State(0, now, length + now)).map(r =>
               states.update(key, r))
         }
       } yield ()
@@ -81,8 +96,6 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
     case Configure(key, config) =>
       Sync[F].delay(configs.putIfAbsent(key, config)) >> ().pure[F]
   }
-
-  val subscribe: Stream[F, Message] = queue.dequeue
 
   def apply[A: Hash: ClassTag](key: A, max: Int, window: FiniteDuration)
       : F[F[Unit]] =
@@ -95,7 +108,7 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
       }
 
       now <- nowF
-      maybeR <- Ref.of[F, State](State(0, now))
+      maybeR <- Ref.of[F, State](State(0, now, now))
       stateRef <- Sync[F] delay {
         states.putIfAbsent(hashkey, maybeR).getOrElse(maybeR)
       }
@@ -107,11 +120,17 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
     import config._
 
     val resetStateF : F[Boolean] =
-      nowF.flatMap(now => stateRef.tryUpdate(_ => State(0, now)))
+      nowF.flatMap(now => stateRef.tryUpdate(_ => State(0, now, now)))
 
     for {
       now <- nowF
       state <- stateRef.get
+      _ <-
+        if (state.waitUntil > now) {
+          Timer[F].sleep(state.waitUntil - now)
+        } else {
+          ().pure[F]
+        }
       back <-
         if (state.start + window < now) {
           queue.enqueue1(Reset(key)) >>
@@ -135,7 +154,10 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
   private val nowF: F[FiniteDuration] =
     Timer[F].clock.realTime(TimeUnit.MILLISECONDS).map(_.millis)
 
-  private case class State(count: Int, start: FiniteDuration)
+  private case class State(
+      count: Int,
+      start: FiniteDuration,
+      waitUntil: FiniteDuration)
 }
 
 object RateLimiter {
@@ -149,6 +171,7 @@ case class Config(max: Int, window: FiniteDuration)
 sealed trait Message
 final case class PlusOne(key: Exists[Key]) extends Message
 final case class Reset(key: Exists[Key]) extends Message
+final case class Wait(key: Exists[Key], length: FiniteDuration) extends Message
 final case class Configure(key: Exists[Key], config: Config) extends Message
 
 final case class Key[A](value: A, hash: Hash[A], tag: ClassTag[A])
