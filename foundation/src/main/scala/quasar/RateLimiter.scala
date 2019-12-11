@@ -169,6 +169,7 @@ case class Config(max: Int, window: FiniteDuration)
 sealed trait Message
 final case class PlusOne(key: Exists[Key]) extends Message
 final case class Reset(key: Exists[Key]) extends Message
+// TODO remove `length` and calculate it from b-n logic
 final case class Wait(key: Exists[Key], length: FiniteDuration) extends Message
 final case class Configure(key: Exists[Key], config: Config) extends Message
 
