@@ -27,16 +27,19 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration._
 import scala.reflect.{ClassTag, classTag}
 
-import cats.effect.{Sync, Timer}
+import cats.effect.{Concurrent, Sync, Timer}
 import cats.effect.concurrent.Ref
 import cats.kernel.Hash
 import cats.implicits._
 
 import fs2.{Pipe, Stream}
+import fs2.concurrent.Queue
 
 import skolems._
 
-final class RateLimiter[F[_]: Sync: Timer] private (caution: Double) {
+final class RateLimiter[F[_]: Concurrent: Timer] private (
+    caution: Double,
+    queue: Queue[F, Message]) {
 
   private val configs: TrieMap[Exists[Key], Config] =
     new TrieMap[Exists[Key], Config](
@@ -48,28 +51,62 @@ final class RateLimiter[F[_]: Sync: Timer] private (caution: Double) {
       toHashing[Exists[Key]],
       toEquiv[Exists[Key]])
 
-  def update: Pipe[F, Exists[Key], Unit] = ???
-  def subscribe: Stream[F, Exists[Key]] = ???
+  val update: Pipe[F, Message, Unit] = _ evalMap {
+    case Reset(key) =>
+      for {
+        ref <- Sync[F].delay(states.get(key))
+        now <- nowF
+        _ <- ref match {
+          case Some(r) =>
+            r.tryUpdate(_ => State(0, now))
+          case None =>
+            Ref.of[F, State](State(0, now)).map(r =>
+              states.update(key, r))
+        }
+      } yield ()
+
+    case PlusOne(key) =>
+      for {
+        ref <- Sync[F].delay(states.get(key))
+        now <- nowF
+        _ <- ref match {
+          case Some(r) =>
+            r.modify(s => (s.copy(count = s.count + 1), s.count))
+          case None =>
+            Ref.of[F, State](State(1, now)).map(r =>
+              states.update(key, r))
+        }
+      } yield ()
+
+    case Configure(key, config) =>
+      Sync[F].delay(configs.putIfAbsent(key, config)) >> ().pure[F]
+  }
+
+  val subscribe: Stream[F, Message] = queue.dequeue
 
   def apply[A: Hash: ClassTag](key: A, max: Int, window: FiniteDuration)
       : F[F[Unit]] =
     for {
+      hashkey <- Key(key, Hash[A], classTag[A]).pure[F]
+
       config <- Sync[F] delay {
         val c = Config(max, window)
-        configs.putIfAbsent(Key(key, Hash[A], classTag[A]), c).getOrElse(c)
+        configs.putIfAbsent(hashkey, c).getOrElse(c)
       }
 
       now <- nowF
       maybeR <- Ref.of[F, State](State(0, now))
       stateRef <- Sync[F] delay {
-        states.putIfAbsent(Key(key, Hash[A], classTag[A]), maybeR).getOrElse(maybeR)
+        states.putIfAbsent(hashkey, maybeR).getOrElse(maybeR)
       }
-    } yield limit(config, stateRef)
+    } yield limit(hashkey, config, stateRef)
 
-  private def limit(config: Config, stateRef: Ref[F, State]): F[Unit] = {
+  private def limit(key: Exists[Key], config: Config, stateRef: Ref[F, State])
+      : F[Unit] = {
+
     import config._
 
-    val emptyStateF: F[Boolean] =
+    val resetStateF : F[Boolean] =
       nowF.flatMap(now => stateRef.tryUpdate(_ => State(0, now)))
 
     for {
@@ -77,15 +114,19 @@ final class RateLimiter[F[_]: Sync: Timer] private (caution: Double) {
       state <- stateRef.get
       back <-
         if (state.start + window < now) {
-          emptyStateF >> limit(config, stateRef)
+          queue.enqueue1(Reset(key)) >>
+            resetStateF >>
+            limit(key, config, stateRef)
         } else {
           stateRef.modify(s => (s.copy(count = s.count + 1), s.count)) flatMap { count =>
             if (count >= max * caution) {
               Timer[F].sleep((state.start + window) - now) >>
-                emptyStateF >>
-                limit(config, stateRef)
-            } else
-              ().pure[F]
+                queue.enqueue1(Reset(key)) >>
+                resetStateF >>
+                limit(key, config, stateRef)
+            } else {
+              queue.enqueue1(PlusOne(key))
+            }
           }
         }
     } yield back
@@ -94,29 +135,36 @@ final class RateLimiter[F[_]: Sync: Timer] private (caution: Double) {
   private val nowF: F[FiniteDuration] =
     Timer[F].clock.realTime(TimeUnit.MILLISECONDS).map(_.millis)
 
-  private case class Config(max: Int, window: FiniteDuration)
   private case class State(count: Int, start: FiniteDuration)
-
-  case class Key[A](value: A, hash: Hash[A], tag: ClassTag[A])
-
-  object Key {
-    implicit def hash: Hash[Exists[Key]] =
-      new Hash[Exists[Key]] {
-
-        def hash(k: Exists[Key]) =
-          k().hash.hash(k().value)
-
-        def eqv(left: Exists[Key], right: Exists[Key]) = {
-          (left().tag == right().tag) &&
-            left().hash.eqv(
-              left().value,
-              right().value.asInstanceOf[left.A])
-        }
-      }
-  }
 }
 
 object RateLimiter {
-  def apply[F[_]: Sync: Timer](caution: Double): F[RateLimiter[F]] =
-    Sync[F].delay(new RateLimiter[F](caution))
+  def apply[F[_]: Concurrent: Timer](caution: Double): F[RateLimiter[F]] =
+    Queue.unbounded[F, Message].map(queue =>
+      new RateLimiter[F](caution, queue))
+}
+
+case class Config(max: Int, window: FiniteDuration)
+
+sealed trait Message
+final case class PlusOne(key: Exists[Key]) extends Message
+final case class Reset(key: Exists[Key]) extends Message
+final case class Configure(key: Exists[Key], config: Config) extends Message
+
+final case class Key[A](value: A, hash: Hash[A], tag: ClassTag[A])
+
+object Key {
+  implicit def hash: Hash[Exists[Key]] =
+    new Hash[Exists[Key]] {
+
+      def hash(k: Exists[Key]) =
+        k().hash.hash(k().value)
+
+      def eqv(left: Exists[Key], right: Exists[Key]) = {
+        (left().tag == right().tag) &&
+          left().hash.eqv(
+            left().value,
+            right().value.asInstanceOf[left.A])
+      }
+    }
 }
