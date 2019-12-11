@@ -60,7 +60,7 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
         now <- nowF
         _ <- ref match {
           case Some(r) =>
-            r.tryUpdate(_ => State(0, now, now))
+            r.tryUpdate(_ => State(0, now, now)) // TODO update instead of tryUpdate ?
           case None =>
             Ref.of[F, State](State(0, now, now)).map(r =>
               states.update(key, r))
@@ -124,6 +124,7 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
 
     import config._
 
+    // TODO update instead of tryUpdate ?
     val resetStateF : F[Boolean] =
       nowF.flatMap(now => stateRef.tryUpdate(_ => State(0, now, now)))
 
