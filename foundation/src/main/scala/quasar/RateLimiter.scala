@@ -125,16 +125,12 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
     for {
       now <- nowF
       state <- stateRef.get
-      _ <-
+      back <-
         if (state.waitUntil > now) {
           Timer[F].sleep(state.waitUntil - now) >>
             resetStateF >>
             limit(key, config, stateRef)
-        } else {
-          ().pure[F]
-        }
-      back <-
-        if (state.start + window < now) {
+        } else if (state.start + window < now) {
           queue.enqueue1(Reset(key)) >>
             resetStateF >>
             limit(key, config, stateRef)
