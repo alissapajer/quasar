@@ -93,6 +93,10 @@ final class RateLimiter[F[_]: Concurrent: Timer] private (
         }
       } yield ()
 
+    // TODO compute how long we have to wait, updating the state and
+    // adding a Wait to the outgoing stream
+    case Throttled(key) => ().pure[F]
+
     case Configure(key, config) =>
       Sync[F].delay(configs.putIfAbsent(key, config)) >> ().pure[F]
   }
@@ -169,9 +173,9 @@ case class Config(max: Int, window: FiniteDuration)
 sealed trait Message
 final case class PlusOne(key: Exists[Key]) extends Message
 final case class Reset(key: Exists[Key]) extends Message
-// TODO remove `length` and calculate it from b-n logic
-final case class Wait(key: Exists[Key], length: FiniteDuration) extends Message
 final case class Configure(key: Exists[Key], config: Config) extends Message
+final case class Wait(key: Exists[Key], length: FiniteDuration) extends Message
+final case class Throttled(key: Exists[Key]) extends Message
 
 final case class Key[A](value: A, hash: Hash[A], tag: ClassTag[A])
 
