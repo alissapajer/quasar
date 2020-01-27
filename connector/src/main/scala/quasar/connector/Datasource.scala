@@ -21,16 +21,26 @@ import quasar.api.QueryEvaluator
 import quasar.api.datasource.DatasourceType
 import quasar.api.resource._
 
+import cats.data.NonEmptyList
 import monocle.{Lens, PLens}
+import scodec.Codec
 
 /** @tparam F effects
   * @tparam G multiple results
   * @tparam Q query
   */
-trait Datasource[F[_], G[_], Q, R, P <: ResourcePathType] extends QueryEvaluator[F, Q, R] {
+trait Datasource[F[_], G[_], Q, P <: ResourcePathType] {
+
+  /** The type used to represent the incremental load offset. */
+  type Offset
 
   /** The type of this datasource. */
   def kind: DatasourceType
+
+  def offsetCodec: Codec[Offset]
+
+  /** The data loaders supported by this datasource. */
+  def loaders: NonEmptyList[Loader[F, Offset, Q]]
 
   /** Returns whether or not the specified path refers to a resource in the
     * specified datasource.
@@ -46,21 +56,7 @@ trait Datasource[F[_], G[_], Q, R, P <: ResourcePathType] extends QueryEvaluator
 
 object Datasource {
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def widenPathType[F[_], G[_], Q, R, PI <: ResourcePathType, PO >: PI <: ResourcePathType](
-      ds: Datasource[F, G, Q, R, PI]): Datasource[F, G, Q, R, PO] =
-    ds.asInstanceOf[Datasource[F, G, Q, R, PO]]
-
-  def evaluator[F[_], G[_], Q, R, P <: ResourcePathType]: Lens[Datasource[F, G, Q, R, P], QueryEvaluator[F, Q, R]] =
-    pevaluator[F, G, Q, R, Q, R, P]
-
-  def pevaluator[F[_], G[_], Q1, R1, Q2, R2, P <: ResourcePathType]
-      : PLens[Datasource[F, G, Q1, R1, P], Datasource[F, G, Q2, R2, P], QueryEvaluator[F, Q1, R1], QueryEvaluator[F, Q2, R2]] =
-    PLens((ds: Datasource[F, G, Q1, R1, P]) => ds: QueryEvaluator[F, Q1, R1]) { qe: QueryEvaluator[F, Q2, R2] => ds =>
-      new Datasource[F, G, Q2, R2, P] {
-        val kind = ds.kind
-        def evaluate(q: Q2) = qe.evaluate(q)
-        def pathIsResource(p: ResourcePath) = ds.pathIsResource(p)
-        def prefixedChildPaths(pfx: ResourcePath) = ds.prefixedChildPaths(pfx)
-      }
-    }
+  def widenPathType[F[_], G[_], Q, PI <: ResourcePathType, PO >: PI <: ResourcePathType](
+      ds: Datasource[F, G, Q, PI]): Datasource[F, G, Q, PO] =
+    ds.asInstanceOf[Datasource[F, G, Q, PO]]
 }
