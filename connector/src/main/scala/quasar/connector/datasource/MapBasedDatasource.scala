@@ -19,8 +19,9 @@ package quasar.connector.datasource
 import slamdata.Predef._
 import quasar.api.datasource.DatasourceType
 import quasar.api.resource._
-import quasar.connector.{MonadResourceErr, PhysicalDatasource, ResourceError}
+import quasar.connector.{Loader, MonadResourceErr, PhysicalDatasource, ResourceError}
 
+import cats.data.NonEmptyList
 import scalaz.{Applicative, ApplicativePlus, ICons, IList, IMap, INil, ISet, Scalaz}
 import Scalaz._
 
@@ -31,7 +32,11 @@ final class MapBasedDatasource[F[_]: Applicative: MonadResourceErr, G[_]: Applic
 
   import ResourceError._
 
-  def evaluate(rp: ResourcePath): F[R] =
+  def loaders = NonEmptyList(
+    Loader.Full[F, ResourcePath, R](evaluate(_)),
+    List())
+
+  private def evaluate(rp: ResourcePath): F[R] =
     content.lookup(rp) getOrElse {
         MonadResourceErr[F].raiseError(
           if (prefixes.contains(rp)) notAResource(rp)
@@ -122,5 +127,4 @@ object MapBasedDatasource {
         : PhysicalDatasource[F, G, ResourcePath, R] =
       new MapBasedDatasource[F, G, R](kind, content.map(_.point[F]))
   }
-
 }

@@ -18,12 +18,15 @@ package quasar.connector
 
 import slamdata.Predef._
 
-import quasar.api.resource.ResourcePathType
+import fs2.Stream
+import qdata.QDataDecode
 
-import cats.data.Const
+sealed trait DeltaResult[F[_], O] extends Product with Serializable
 
-trait PhysicalDatasource[F[_], G[_], Q, R]
-    extends Datasource[F, G, Q, R, Const[Nothing, ?], ResourcePathType.Physical] {
+object DeltaResult {
 
-  type Offset = Nothing
+  final case class Parsed[F[_], O, A](
+      decode: QDataDecode[A],
+      changes: Stream[F, Change[F, O, A]])
+      extends DeltaResult[F, O]
 }

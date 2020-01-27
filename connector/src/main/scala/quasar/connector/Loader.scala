@@ -18,12 +18,12 @@ package quasar.connector
 
 import slamdata.Predef._
 
-import quasar.api.resource.ResourcePathType
+trait Loader[F[_], -A, O, +R1, +R2] extends Product with Serializable
 
-import cats.data.Const
+object Loader {
+  final case class Full[F[_], A, R](f: A => F[R])
+      extends Loader[F, A, Nothing, R, Nothing]
 
-trait PhysicalDatasource[F[_], G[_], Q, R]
-    extends Datasource[F, G, Q, R, Const[Nothing, ?], ResourcePathType.Physical] {
-
-  type Offset = Nothing
+  final case class Delta[F[_], O, A, R[_]](f: (A, Offset[F, O, A]) => F[R[O]])
+      extends Loader[F, A, O, Nothing, R[O]]
 }

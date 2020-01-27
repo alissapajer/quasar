@@ -18,12 +18,13 @@ package quasar.connector
 
 import slamdata.Predef._
 
-import quasar.api.resource.ResourcePathType
+trait Offset[F[_], O, A]
 
-import cats.data.Const
+object Offset {
 
-trait PhysicalDatasource[F[_], G[_], Q, R]
-    extends Datasource[F, G, Q, R, Const[Nothing, ?], ResourcePathType.Physical] {
+  final case class CreateOnly[F[_], O, A](offset: Option[O])
+      extends Offset[F, O, Change.Create[F, O, A]]
 
-  type Offset = Nothing
+  final case class Complete[F[_], O, A](offset: Option[O])
+      extends Offset[F, O, Change[F, O, A]]
 }

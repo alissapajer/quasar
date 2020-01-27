@@ -33,6 +33,8 @@ import fs2.Stream
 trait LightweightDatasourceModule {
   def kind: DatasourceType
 
+  type Foo
+
   def sanitizeConfig(config: Json): Json
 
   def lightweightDatasource[F[_]: ConcurrentEffect: ContextShift: MonadResourceErr: Timer, A: Hash](
@@ -44,6 +46,9 @@ trait LightweightDatasourceModule {
 }
 
 object LightweightDatasourceModule {
-  type DSP[F[_], P <: ResourcePathType] = Datasource[F, Stream[F, ?], InterpretedRead[ResourcePath], QueryResult[F], P]
+
+  type DSP[F[_], P <: ResourcePathType] =
+      Datasource[F, Stream[F, ?], InterpretedRead[ResourcePath], QueryResult[F], DeltaResult[F, ?], P]
+
   type DS[F[_]] = DSP[F, ResourcePathType.Physical]
 }
