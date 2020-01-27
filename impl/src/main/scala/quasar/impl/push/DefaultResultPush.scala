@@ -24,7 +24,7 @@ import quasar.api.QueryEvaluator
 import quasar.api.destination.ResultType
 import quasar.api.push.{PushMeta, ResultPush, ResultPushError, ResultRender, Status}
 import quasar.api.resource.ResourcePath
-import quasar.api.table.TableRef
+import quasar.api.table.{TableColumns, TableRef}
 
 import java.time.Instant
 import java.util.{Map => JMap}
@@ -69,7 +69,7 @@ class DefaultResultPush[F[_]: Concurrent: Timer, T, D, Q, R] private (
 
       sink <- format match {
         case ResultType.Csv =>
-          EitherT.fromOptionF[F, RPE, ResultSink.Csv[F]](
+          EitherT.fromOptionF[F, RPE, ResultSink.CreateSink[F]](
             findCsvSink(dest.sinks).pure[F],
             ResultPushError.FormatNotSupported(destinationId, format.show))
       }
@@ -80,10 +80,10 @@ class DefaultResultPush[F[_]: Concurrent: Timer, T, D, Q, R] private (
       evaluated = format match {
         case ResultType.Csv =>
           evaluator.evaluate(query)
-            .map(_.flatMap(render.renderCsv(_, columns, sink.config, limit)))
+            .map(_.flatMap(render.renderCsv(_, columns, sink.format, limit)))
       }
 
-      sinked = sink.run(path, columns, Stream.force(evaluated)).map(Right(_))
+      sinked = sink.ingest(path, TableColumns(None, columns), Stream.force(evaluated)).map(Right(_))
 
       now <- EitherT.right[RPE](instantNow)
       submitted <- EitherT.right[RPE](jobManager.submit(Job((destinationId, tableId), sinked)))
@@ -150,12 +150,13 @@ class DefaultResultPush[F[_]: Concurrent: Timer, T, D, Q, R] private (
     Timer[F].clock.realTime(MILLISECONDS)
       .map(Instant.ofEpochMilli(_))
 
-  private def findCsvSink(sinks: scalaz.NonEmptyList[ResultSink[F]]): Option[ResultSink.Csv[F]] = {
+  private def findCsvSink(sinks: scalaz.NonEmptyList[ResultSink[F]])
+      : Option[ResultSink.CreateSink[F]] = {
     import scalaz.Id
     import scalaz.syntax.foldable._
 
-    sinks.findMapM[Id.Id, ResultSink.Csv[F]] {
-      case csvSink @ ResultSink.Csv(_, _) => Some(csvSink)
+    sinks.findMapM[Id.Id, ResultSink.CreateSink[F]] {
+      case createSink @ ResultSink.CreateSink(_, _) => Some(createSink)
       case _ => None
     }
   }

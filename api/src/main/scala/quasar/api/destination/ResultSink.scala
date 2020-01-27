@@ -20,19 +20,26 @@ import slamdata.Predef.{Stream => _, _}
 
 import quasar.api.push.RenderConfig
 import quasar.api.resource.ResourcePath
-import quasar.api.table.TableColumn
+import quasar.api.table.TableColumns
 
 import fs2.Stream
 
-sealed trait ResultSink[F[_]]
+sealed trait ResultSink[F[_]] extends Product with Serializable
 
 object ResultSink {
-  final case class Csv[F[_]](
-    config: RenderConfig.Csv,
-    run: (ResourcePath, List[TableColumn], Stream[F, Byte]) => Stream[F, Unit])
+
+  final case class CreateSink[F[_]](
+      format: RenderConfig.Csv,
+      ingest: (ResourcePath, TableColumns, Stream[F, Byte]) => Stream[F, Unit])
       extends ResultSink[F]
 
-  def csv[F[_]](config: RenderConfig.Csv)(
-    run: (ResourcePath, List[TableColumn], Stream[F, Byte]) => Stream[F, Unit]): ResultSink[F] =
-    Csv[F](config, run)
+  final case class ReplaceSink[F[_]](
+      format: RenderConfig.Csv,
+      ingest: (ResourcePath, TableColumns, Array[Byte], Stream[F, Byte]) => Stream[F, Unit])
+      extends ResultSink[F]
+
+  final case class DeleteSink[F[_]](
+      format: RenderConfig.Csv,
+      ingest: (ResourcePath, TableColumns, Stream[F, Array[Byte]]) => Stream[F, Unit])
+      extends ResultSink[F]
 }

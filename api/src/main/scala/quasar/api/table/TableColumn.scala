@@ -34,3 +34,5 @@ object TableColumn {
       "TableColumn(" + tc.name + ", " + tc.tpe.shows + ")"
     }
 }
+
+final case class TableColumns(correlationId: Option[TableColumn], columns: List[TableColumn])
