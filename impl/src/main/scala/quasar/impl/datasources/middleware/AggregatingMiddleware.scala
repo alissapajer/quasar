@@ -32,21 +32,21 @@ import fs2.Stream
 import shims.{functorToCats, functorToScalaz}
 
 object AggregatingMiddleware {
-  def apply[T[_[_]], F[_]: MonadResourceErr: MonadCreateErr: Sync, I, R](
+  def apply[T[_[_]], F[_]: MonadResourceErr: MonadCreateErr: Sync, I, R1, R2[_]](
       datasourceId: I,
-      mds: ManagedDatasource[T, F, Stream[F, ?], R, ResourcePathType.Physical])
-      : F[ManagedDatasource[T, F, Stream[F, ?], Either[R, AggregateResult[F, R]], ResourcePathType]] =
+      mds: ManagedDatasource[T, F, Stream[F, ?], R1, R2, ResourcePathType.Physical])
+      : F[ManagedDatasource[T, F, Stream[F, ?], Either[R1, AggregateResult[F, R1]], Either[R2, AggregateResult[F, R2]], ResourcePathType]] =
     Monad[F].pure(mds) map {
       case ManagedDatasource.ManagedLightweight(lw) =>
-        val ds: Datasource[F, Stream[F, ?], InterpretedRead[ResourcePath], R, ResourcePathType.Physical] = lw
+        val ds: Datasource[F, Stream[F, ?], InterpretedRead[ResourcePath], R1, R2, ResourcePathType.Physical] = lw
         ManagedDatasource.lightweight[T](
           AggregatingDatasource(ds, InterpretedRead.path))
 
       // TODO: union all in QScript?
       case ManagedDatasource.ManagedHeavyweight(hw) =>
         type Q = T[QScriptEducated[T, ?]]
-        val ds: Datasource[F, Stream[F, ?], Q, Either[R, AggregateResult[F, R]], ResourcePathType.Physical] =
-          Datasource.pevaluator[F, Stream[F, ?], Q, R, Q, Either[R, AggregateResult[F, R]], ResourcePathType.Physical]
+        val ds: Datasource[F, Stream[F, ?], Q, Either[R1, AggregateResult[F, R1]], Either[R2, AggregateResult[F, R2]], ResourcePathType.Physical] =
+          Datasource.pevaluator[F, Stream[F, ?], Q, R, Q, Either[R1, AggregateResult[F, R1]], Either[R2, AggregateResult[F, R2]], ResourcePathType.Physical]
           .modify(_.map(Left(_)))(hw)
         ManagedDatasource.heavyweight(Datasource.widenPathType(ds))
     }

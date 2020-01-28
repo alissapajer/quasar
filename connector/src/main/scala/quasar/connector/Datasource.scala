@@ -53,4 +53,15 @@ object Datasource {
   def widenPathType[F[_], G[_], Q, PI <: ResourcePathType, PO >: PI <: ResourcePathType, R1, R2[_]](
       ds: Datasource[F, G, Q, R1, R2, PI]): Datasource[F, G, Q, R1, R2, PO] =
     ds.asInstanceOf[Datasource[F, G, Q, R1, R2, PO]]
+
+  def pevaluator[F[_], G[_], Q1, R11, R21[_], Q2, R21, R22[_], P <: ResourcePathType]
+      : PLens[Datasource[F, G, Q1, R11, R12, P], Datasource[F, G, Q2, R21, R22, P], QueryEvaluator[F, Q1, R1], QueryEvaluator[F, Q2, R2]] =
+    PLens((ds: Datasource[F, G, Q1, R11, R12, P]) => ds: QueryEvaluator[F, Q1, R1]) { qe: QueryEvaluator[F, Q2, R2] => ds =>
+      new Datasource[F, G, Q2, R2, P] {
+        val kind = ds.kind
+        def evaluate(q: Q2) = qe.evaluate(q)
+        def pathIsResource(p: ResourcePath) = ds.pathIsResource(p)
+        def prefixedChildPaths(pfx: ResourcePath) = ds.prefixedChildPaths(pfx)
+      }
+    }
 }
