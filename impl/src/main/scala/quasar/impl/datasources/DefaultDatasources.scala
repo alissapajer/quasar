@@ -49,15 +49,15 @@ private[quasar] final class DefaultDatasources[
     T[_[_]]: BirecursiveT: EqualT: ShowT: RenderTreeT,
     F[_]: Sync: MonadError_[?[_], CreateError[C]],
     I: Equal, C: Equal, S <: SchemaConfig,
-    R] private(
+    R1, R2[_]] private(
     semaphore: IndexedSemaphore[F, I],
     freshId: F[I],
     refs: IndexedStore[F, I, DatasourceRef[C]],
-    modules: DatasourceModules[T, F, Stream[F, ?], I, C, R, ResourcePathType],
+    modules: DatasourceModules[T, F, Stream[F, ?], I, C, R1, R2, ResourcePathType],
     getter: CachedGetter[F, I, DatasourceRef[C]],
-    cache: ResourceManager[F, I, ManagedDatasource[T, F, Stream[F, ?], R, ResourcePathType]],
+    cache: ResourceManager[F, I, ManagedDatasource[T, F, Stream[F, ?], R1, R2, ResourcePathType]],
     errors: DatasourceErrors[F, I],
-    schema: ResourceSchema[F, S, (ResourcePath, R)],
+    schema: ResourceSchema[F, S, (ResourcePath, R1)], // FIXME `Either[R1, R2]`
     byteStores: ByteStores[F, I])
     extends Datasources[F, Stream[F, ?], I, C, S] {
 
@@ -263,15 +263,15 @@ object DefaultDatasources {
       T[_[_]]: BirecursiveT: EqualT: ShowT: RenderTreeT,
       F[_]: Concurrent: ContextShift: MonadError_[?[_], CreateError[C]],
       I: Equal, C: Equal, S <: SchemaConfig,
-      R](
+      R1, R2[_]](
       freshId: F[I],
       refs: IndexedStore[F, I, DatasourceRef[C]],
       modules: DatasourceModules[T, F, Stream[F, ?], I, C, R, ResourcePathType],
-      cache: ResourceManager[F, I, ManagedDatasource[T, F, Stream[F, ?], R, ResourcePathType]],
+      cache: ResourceManager[F, I, ManagedDatasource[T, F, Stream[F, ?], R1, R2, ResourcePathType]],
       errors: DatasourceErrors[F, I],
-      schema: ResourceSchema[F, S, (ResourcePath, R)],
+      schema: ResourceSchema[F, S, (ResourcePath, R)], // TODO add schema for R2
       byteStores: ByteStores[F, I])
-      : F[DefaultDatasources[T, F, I, C, S, R]] = for {
+      : F[DefaultDatasources[T, F, I, C, S, R1, R2]] = for {
     semaphore <- IndexedSemaphore[F, I]
     getter <- CachedGetter(refs.lookup(_))
   } yield new DefaultDatasources(semaphore, freshId, refs, modules, getter, cache, errors, schema, byteStores)

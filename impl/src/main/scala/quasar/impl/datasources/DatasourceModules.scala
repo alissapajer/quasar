@@ -43,19 +43,19 @@ import shims.{monadToScalaz, monadToCats}
 
 import scala.concurrent.ExecutionContext
 
-trait DatasourceModules[T[_[_]], F[_], G[_], I, C, R, P <: ResourcePathType] { self =>
-  def create(i: I, ref: DatasourceRef[C]): EitherT[Resource[F, ?], CreateError[C], ManagedDatasource[T, F, G, R, P]]
+trait DatasourceModules[T[_[_]], F[_], G[_], I, C, R1, R2[_], P <: ResourcePathType] { self =>
+  def create(i: I, ref: DatasourceRef[C]): EitherT[Resource[F, ?], CreateError[C], ManagedDatasource[T, F, G, R1, R2, P]]
   def sanitizeRef(inp: DatasourceRef[C]): DatasourceRef[C]
   def supportedTypes: F[ISet[DatasourceType]]
 
-  def withMiddleware[H[_], S, Q <: ResourcePathType](
-    f: (I, ManagedDatasource[T, F, G, R, P]) => F[ManagedDatasource[T, F, H, S, Q]])(
+  def withMiddleware[H[_], S1, S2[_], Q <: ResourcePathType](
+    f: (I, ManagedDatasource[T, F, G, R1, R2, P]) => F[ManagedDatasource[T, F, H, S1, S2, Q]])(
     implicit
     AF: Monad[F])
-    : DatasourceModules[T, F, H, I, C, S, Q] =
-    new DatasourceModules[T, F, H, I, C, S, Q] {
-      def create(i: I, ref: DatasourceRef[C]): EitherT[Resource[F, ?], CreateError[C], ManagedDatasource[T, F, H, S, Q]] =
-        self.create(i, ref) flatMap { (mds: ManagedDatasource[T, F, G, R, P]) =>
+    : DatasourceModules[T, F, H, I, C, S1, S2, Q] =
+    new DatasourceModules[T, F, H, I, C, S1, S2, Q] {
+      def create(i: I, ref: DatasourceRef[C]): EitherT[Resource[F, ?], CreateError[C], ManagedDatasource[T, F, H, S1, S2, Q]] =
+        self.create(i, ref) flatMap { (mds: ManagedDatasource[T, F, G, R1, R2, P]) =>
           EitherT.rightT(Resource.liftF(f(i, mds)))
         }
       def sanitizeRef(inp: DatasourceRef[C]): DatasourceRef[C] =
@@ -64,10 +64,10 @@ trait DatasourceModules[T[_[_]], F[_], G[_], I, C, R, P <: ResourcePathType] { s
         self.supportedTypes
     }
 
-  def withFinalizer(f: (I, ManagedDatasource[T, F, G, R, P]) => F[Unit])(implicit F: Monad[F]): DatasourceModules[T, F, G, I, C, R, P] =
-    new DatasourceModules[T, F, G, I, C, R, P] {
-      def create(i: I, ref: DatasourceRef[C]): EitherT[Resource[F, ?], CreateError[C], ManagedDatasource[T, F, G, R, P]] =
-        self.create(i, ref) flatMap { (mds: ManagedDatasource[T, F, G, R, P]) =>
+  def withFinalizer(f: (I, ManagedDatasource[T, F, G, R1, R2, P]) => F[Unit])(implicit F: Monad[F]): DatasourceModules[T, F, G, I, C, R1, R2, P] =
+    new DatasourceModules[T, F, G, I, C, R1, R2, P] {
+      def create(i: I, ref: DatasourceRef[C]): EitherT[Resource[F, ?], CreateError[C], ManagedDatasource[T, F, G, R1, R2, P]] =
+        self.create(i, ref) flatMap { (mds: ManagedDatasource[T, F, G, R1, R2, P]) =>
           EitherT.rightT(Resource.make(mds.pure[F])(x => f(i, x)))
         }
       def sanitizeRef(inp: DatasourceRef[C]): DatasourceRef[C] =
@@ -77,15 +77,14 @@ trait DatasourceModules[T[_[_]], F[_], G[_], I, C, R, P <: ResourcePathType] { s
     }
 
   def widenPathType[PP >: P <: ResourcePathType](implicit AF: Monad[F]): DatasourceModules[T, F, G, I, C, R, PP] =
-    new DatasourceModules[T, F, G, I, C, R, PP] {
-      def create(i: I, ref: DatasourceRef[C]): EitherT[Resource[F, ?], CreateError[C], ManagedDatasource[T, F, G, R, PP]] =
-        self.create(i, ref) map { ManagedDatasource.widenPathType[T, F, G, R, P, PP](_) }
+    new DatasourceModules[T, F, G, I, C, R1, R2, PP] {
+      def create(i: I, ref: DatasourceRef[C]): EitherT[Resource[F, ?], CreateError[C], ManagedDatasource[T, F, G, R1, R2, PP]] =
+        self.create(i, ref) map { ManagedDatasource.widenPathType[T, F, G, R1, R2, P, PP](_) }
       def sanitizeRef(inp: DatasourceRef[C]): DatasourceRef[C] =
         self.sanitizeRef(inp)
       def supportedTypes: F[ISet[DatasourceType]] =
         self.supportedTypes
     }
-
 }
 
 object DatasourceModules {
