@@ -18,7 +18,7 @@ package quasar.impl
 package datasources.middleware
 
 import quasar.api.resource.{ResourcePath, ResourcePathType}
-import quasar.connector.{Datasource, Loader, MonadResourceErr}
+import quasar.connector.{Datasource, Loader, MonadResourceErr, Offset => Off}
 import quasar.impl.datasource.{AggregateResult, AggregatingDatasource, MonadCreateErr}
 import quasar.impl.datasources.ManagedDatasource
 import quasar.qscript.{InterpretedRead, QScriptEducated}
@@ -42,6 +42,7 @@ object AggregatingMiddleware {
     Monad[F].pure(mds) map {
       case ManagedDatasource.ManagedLightweight(lw) =>
         val ds: Datasource[F, Stream[F, ?], InterpretedRead[ResourcePath], R1, R2, ResourcePathType.Physical] = lw
+
         ManagedDatasource.lightweight[T](
           AggregatingDatasource(ds, InterpretedRead.path))
 
@@ -49,14 +50,21 @@ object AggregatingMiddleware {
       case ManagedDatasource.ManagedHeavyweight(hw) =>
         type Q = T[QScriptEducated[T, ?]]
 
-        val ds: Datasource[F, Stream[F, ?], Q, Either[R1, AggregateResult[F, R1]], EitherR[F, R2, ?], ResourcePathType.Physical] =
+        val ds: Datasource[F, Stream[F, ?], Q, R1, R2, ResourcePathType.Physical] = hw
+
+        val newds =
           new Datasource[F, Stream[F, ?], Q, Either[R1, AggregateResult[F, R1]], EitherR[F, R2, ?], ResourcePathType.Physical] {
             type Offset = ds.Offset
             val kind = ds.kind
 
+            def ogloaders: NonEmptyList[Loader[F, Q, Offset, R1, R2[Offset]]] = ds.loaders
+
             def loaders: NonEmptyList[Loader[F, Q, Offset, Either[R1, AggregateResult[F, R1]], Either[R2[Offset], AggregateResult[F, R2[Offset]]]]] =
-              ds.loaders map {
-                case Loader.Full(f) => Loader.Full[F, Q, R1](a => Left(f(a)))
+              ogloaders map {
+                case Loader.Full(f) => Loader.Full(a => f(a).map(Left(_)))
+                case Loader.Delta(f) => Loader.Delta[F, Offset, Q, EitherR[F, R2, ?]]({
+                  case (a, o) => f(a, o).map(Left(_))
+                })
               }
 
             def pathIsResource(p: ResourcePath) = ds.pathIsResource(p)
@@ -64,6 +72,7 @@ object AggregatingMiddleware {
           }
           //Datasource.pevaluator[F, Stream[F, ?], Q, R, Q, Either[R1, AggregateResult[F, R1]], Either[R2, AggregateResult[F, R2]], ResourcePathType.Physical]
           //.modify(_.map(Left(_)))(hw)
-        ManagedDatasource.heavyweight(Datasource.widenPathType(ds))
+
+        ManagedDatasource.heavyweight(Datasource.widenPathType(newds))
     }
 }

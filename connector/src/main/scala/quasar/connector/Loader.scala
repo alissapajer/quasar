@@ -18,7 +18,7 @@ package quasar.connector
 
 import slamdata.Predef._
 
-trait Loader[F[_], -A, O, +R1, +R2] extends Product with Serializable
+trait Loader[F[_], -A, +O, +R1, +R2] extends Product with Serializable
 
 object Loader {
   final case class Full[F[_], A, R](f: A => F[R])

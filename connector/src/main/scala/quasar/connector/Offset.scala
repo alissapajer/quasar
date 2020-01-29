@@ -18,7 +18,7 @@ package quasar.connector
 
 import slamdata.Predef._
 
-trait Offset[F[_], O, A]
+trait Offset[F[_], O, +A]
 
 object Offset {
 
