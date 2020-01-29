@@ -47,7 +47,7 @@ sealed trait ManagedDatasource[T[_[_]], F[_], G[_], R1, R2[_], P <: ResourcePath
       case ManagedHeavyweight(hw) => hw.prefixedChildPaths(prefixPath)
     }
 
-  def modify[V[_], W[_], S1, S2](
+  def modify[V[_], W[_], S1, S2[_]](
       f: Datasource[F, G, ?, R1, R2, P] ~> Datasource[V, W, ?, S1, S2, P])
       : ManagedDatasource[T, V, W, S1, S2, P] =
     this match {
