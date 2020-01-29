@@ -18,7 +18,7 @@ package quasar.impl
 package datasources.middleware
 
 import quasar.api.resource.{ResourcePath, ResourcePathType}
-import quasar.connector.{Datasource, Loader, MonadResourceErr, Offset => Off}
+import quasar.connector.{Datasource, Loader, MonadResourceErr}
 import quasar.impl.datasource.{AggregateResult, AggregatingDatasource, MonadCreateErr}
 import quasar.impl.datasources.ManagedDatasource
 import quasar.qscript.{InterpretedRead, QScriptEducated}
@@ -33,6 +33,7 @@ import fs2.Stream
 import shims.{functorToCats, functorToScalaz}
 
 object AggregatingMiddleware {
+// TODO rename to EitherAgg and use everywhere
   type EitherR[F[_], R[_], A] = Either[R[A], AggregateResult[F, R[A]]]
 
   def apply[T[_[_]], F[_]: MonadResourceErr: MonadCreateErr: Sync, I, R1, R2[_]](
@@ -73,6 +74,7 @@ object AggregatingMiddleware {
           //Datasource.pevaluator[F, Stream[F, ?], Q, R, Q, Either[R1, AggregateResult[F, R1]], Either[R2, AggregateResult[F, R2]], ResourcePathType.Physical]
           //.modify(_.map(Left(_)))(hw)
 
-        ManagedDatasource.heavyweight(Datasource.widenPathType(newds))
+        ManagedDatasource.heavyweight[T, F, Stream[F, ?], Either[R1, AggregateResult[F, R1]], EitherR[F, R2, ?], ResourcePathType](
+          Datasource.widenPathType[F, Stream[F, ?], Q, ResourcePathType.Physical, ResourcePathType, Either[R1, AggregateResult[F, R1]], EitherR[F, R2, ?]](newds))
     }
 }
