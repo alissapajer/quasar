@@ -81,7 +81,7 @@ private[impl] final class DefaultDatasources[
 
   def removeDatasource(i: I): F[Condition[ExistentialError[I]]] =
     refs.delete(i).ifM(
-      dispose(i).as(Condition.normal[ExistentialError[I]]()),
+      print(s"dispose in removeDatasource: $i") >> dispose(i).as(Condition.normal[ExistentialError[I]]()),
       Condition.abnormal(datasourceNotFound[I, ExistentialError[I]](i)).point[F])
 
   def replaceDatasource(i: I, ref: DatasourceRef[C]): F[Condition[DatasourceError[I, C]]] = {
@@ -104,7 +104,7 @@ private[impl] final class DefaultDatasources[
 
         // it's removed, but resource hasn't been finalized
         case Removed(_) =>
-          dispose(i).as(notFound)
+          print(s"dispose in Removed in doReplace $i with ref: $ref") >> dispose(i).as(notFound)
 
         // The last value we knew about has since been externally updated,
         // but our update replaces it, so we ignore the new value and
@@ -156,13 +156,13 @@ private[impl] final class DefaultDatasources[
           (None: Option[QDS]).pure[F]
 
         case Removed(_) =>
-          dispose(i).as(None: Option[QDS])
+          print(s"dispose in quasarDatasourceOf Removed $i") >> dispose(i).as(None: Option[QDS])
 
         case Updated(incoming, old) if DatasourceRef.atMostRenamed(incoming, old) =>
           fromCacheOrCreate(incoming).map(_.some)
 
         case Updated(incoming, old) =>
-          dispose(i) >> create(incoming).map(_.some)
+          print(s"dispose in quasarDatasourceOf Updated $i with incoming: $incoming and old: $old") >> dispose(i) >> create(incoming).map(_.some)
 
         case Present(value) =>
           fromCacheOrCreate(value).map(_.some)
@@ -175,7 +175,7 @@ private[impl] final class DefaultDatasources[
       _ <- verifyNameUnique[E](ref.name, i)
       // Grab managed ds and if it's presented shut it down
       mbCurrent <- EitherT.rightT(cache.get(i))
-      _ <- EitherT.rightT(mbCurrent.fold(().point[F])(_ => dispose(i)))
+      _ <- EitherT.rightT(mbCurrent.fold(().point[F])(_ => print(s"dispose in addRef $i with ref $ref") >> dispose(i)))
       allocated <- EitherT(modules.create(i, ref).run.allocated map {
         case (-\/(e), _) => -\/(e: E)
         case (\/-(a), finalize) => \/-((a, finalize))
@@ -213,6 +213,9 @@ private[impl] final class DefaultDatasources[
 
   private def dispose(i: I): F[Unit] =
     cache.shutdown(i) >> byteStores.clear(i)
+
+  private def print(msg: String): F[Unit] =
+    Sync[F].delay(println(msg))
 
   private val createErrorHandling: EitherT[Resource[F, ?], CreateError[C], ?] ~> Resource[F, ?] =
     λ[EitherT[Resource[F, ?], CreateError[C], ?] ~> Resource[F, ?]]( inp =>
