@@ -120,7 +120,9 @@ object Quasar extends Logging {
 
       concurrency <- Resource.liftF(Sync[F].delay(Runtime.getRuntime.availableProcessors))
 
-      _ <- migrateDatasourceConfigs[F](datasourceRefs, modulesByKind)(concurrency)
+      migratedDsRefs <- Resource.liftF()
+
+      _ <- migrateDatasourceConfigs[F](datasourceRefs, modulesByKind, migratedDsRefs)(concurrency)
 
       (dsErrors, onCondition) <- Resource.liftF(DefaultDatasourceErrors[F, UUID])
 
@@ -214,7 +216,8 @@ object Quasar extends Logging {
 
   private def migrateDatasourceConfigs[F[_]: Concurrent](
       datasourceRefs: IndexedStore[F, UUID, DatasourceRef[Json]],
-      modules: Map[DatasourceType, DatasourceModule])(
+      modules: Map[DatasourceType, DatasourceModule],
+      target: IndexedStore[F, UUID, DatasourceRef[Json]])(
       concurrency: Int)
       : Resource[F, Unit] = {
     val inserts: Stream[F, Unit] =
@@ -227,7 +230,7 @@ object Quasar extends Logging {
                   if (c === ref.config)
                     ().pure[F]
                   else
-                    datasourceRefs.insert(id, ref.copy(config = c))
+                    target.insert(id, ref.copy(config = c))
                 case Left(_) => ().pure[F]
               }
             case None => ().pure[F]
